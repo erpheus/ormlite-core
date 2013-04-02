@@ -1798,7 +1798,17 @@ public class BaseDaoImplTest extends BaseCoreTest {
 		public void fire(Connection conn, Object[] oldRow, Object[] newRow) {
 			callC++;
 		}
-	}
+
+        @Override
+        public void close() throws SQLException {
+            //To change body of implemented methods use File | Settings | File Templates.
+        }
+
+        @Override
+        public void remove() throws SQLException {
+            //To change body of implemented methods use File | Settings | File Templates.
+        }
+    }
 
 	@Test
 	public void testUnique() throws Exception {

@@ -17,7 +17,7 @@ import java.sql.SQLException;
 import java.util.List;
 
 import org.easymock.IAnswer;
-import org.easymock.internal.LastControl;
+import org.easymock.EasyMock;
 import org.junit.Test;
 
 import com.j256.ormlite.dao.CloseableIterator;
@@ -48,7 +48,7 @@ public class MappedCreateTest extends BaseCoreStmtTest {
 				isA(GeneratedKeyHolder.class));
 		expectLastCall().andAnswer(new IAnswer<Object>() {
 			public Integer answer() throws Throwable {
-				GeneratedKeyHolder keyHolder = (GeneratedKeyHolder) (LastControl.getCurrentArguments())[3];
+				GeneratedKeyHolder keyHolder = (GeneratedKeyHolder) (EasyMock.getCurrentArguments())[3];
 				keyHolder.addKey(2);
 				return 1;
 			}
