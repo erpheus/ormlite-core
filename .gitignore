@@ -10,3 +10,4 @@ src/main/doc/ormlite
 *.ipr
 *.iws
 .idea/
+out
