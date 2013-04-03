@@ -31,6 +31,7 @@ import com.j256.ormlite.dao.DaoManager;
  * </p>
  * 
  * @author graywatson
+ * @author erpheus
  */
 @Target(TYPE)
 @Retention(RUNTIME)
@@ -46,4 +47,9 @@ public @interface DatabaseTable {
 	 * internally.
 	 */
 	Class<?> daoClass() default Void.class;
+
+    /**
+     * Subclasses of this class. Used to query other tables when trying to access its elements.
+     */
+    Class<?>[] directSubclasses() default {};
 }
