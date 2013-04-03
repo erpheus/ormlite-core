@@ -75,7 +75,13 @@ public class DaoManager {
 			logger.debug("created dao for class {} with reflection", clazz);
 		} else {
 			Class<?> daoClass = databaseTable.daoClass();
-			Object[] arguments = new Object[] { connectionSource, clazz };
+            Object[] arguments;
+            if(SuperDaoImpl.class.isAssignableFrom(clazz)){
+                // Superclasses need the array of subclasses.
+                arguments = new Object[] { connectionSource, clazz, databaseTable.directSubclasses()};
+            }else{
+                arguments = new Object[] { connectionSource, clazz };
+            }
 			// look first for the constructor with a class parameter in case it is a generic dao
 			Constructor<?> daoConstructor = findConstructor(daoClass, arguments);
 			if (daoConstructor == null) {
