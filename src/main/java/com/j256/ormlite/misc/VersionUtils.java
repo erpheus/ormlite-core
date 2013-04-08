@@ -27,6 +27,10 @@ public class VersionUtils {
 		logVersionWarnings("core", coreVersion, "jdbc", jdbcVersion);
 	}
 
+    public static final void checkCoreVersusJdbcVersions(){
+
+    }
+
 	/**
 	 * Verifies that the ormlite-core and -android version files hold the same string.
 	 */
