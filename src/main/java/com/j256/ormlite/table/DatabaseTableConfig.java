@@ -6,10 +6,12 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.j256.ormlite.dao.SuperDaoImpl;
 import com.j256.ormlite.db.DatabaseType;
 import com.j256.ormlite.field.DatabaseField;
 import com.j256.ormlite.field.DatabaseFieldConfig;
 import com.j256.ormlite.field.FieldType;
+import com.j256.ormlite.field.MockFieldType;
 import com.j256.ormlite.misc.JavaxPersistence;
 import com.j256.ormlite.support.ConnectionSource;
 
@@ -208,6 +210,13 @@ public class DatabaseTableConfig<T> {
 				FieldType fieldType = FieldType.createFieldType(connectionSource, tableName, field, clazz);
 				if (fieldType != null) {
 					fieldTypes.add(fieldType);
+                    /* Order of creation between fieldType and additionalFieldType is very important */
+                    if (fieldType.isForeign() && SuperDaoImpl.isSuperClass(fieldType.getField().getType())){
+                        MockFieldType additional = FieldType.createAdditionalForeignFieldType(connectionSource, tableName, clazz, fieldType);
+                        fieldTypes.add(additional);
+                        fieldType.setAdditionalFieldType(additional);
+                        // TODO: Create additional column
+                    }
 				}
 			}
 		}

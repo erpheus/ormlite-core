@@ -715,4 +715,48 @@ public class DatabaseFieldConfig {
 	private static String methodFromField(Field field, String prefix) {
 		return prefix + field.getName().substring(0, 1).toUpperCase() + field.getName().substring(1);
 	}
+
+    public static DatabaseFieldConfig standardStringFieldConfig(DatabaseType databaseType, String name) {
+        DatabaseFieldConfig config = new DatabaseFieldConfig();
+        config.fieldName = name;
+        if (databaseType.isEntityNamesMustBeUpCase()) {
+            config.fieldName = config.fieldName.toUpperCase();
+        }
+        config.columnName = valueIfNotBlank(name);
+        config.dataType = DataType.STRING;
+        // NOTE: == did not work with the NO_DEFAULT string
+        String defaultValue = DatabaseField.DEFAULT_STRING;
+        if (!defaultValue.equals(DatabaseField.DEFAULT_STRING)) {
+            config.defaultValue = defaultValue;
+        }
+        config.width = 256;
+        config.canBeNull = true;
+        config.id = false;
+        config.generatedId = false;
+        config.generatedIdSequence = valueIfNotBlank("");
+        config.foreign = false;
+        config.useGetSet = false;
+        config.unknownEnumValue = null;
+        config.throwIfNull = false;
+        config.format = valueIfNotBlank("");
+        config.unique = false;
+        config.uniqueCombo = false;
+
+        // add in the index information
+        config.index = false;
+        config.indexName = valueIfNotBlank("");
+        config.uniqueIndex = false;
+        config.uniqueIndexName = valueIfNotBlank("");
+        config.foreignAutoRefresh = false;
+        config.maxForeignAutoRefreshLevel = DatabaseField.NO_MAX_FOREIGN_AUTO_REFRESH_LEVEL_SPECIFIED;
+        config.persisterClass = VoidType.class;
+        config.allowGeneratedIdInsert = false;
+        config.columnDefinition = valueIfNotBlank("");
+        config.foreignAutoCreate = false;
+        config.version = false;
+        config.foreignColumnName = valueIfNotBlank("");
+        config.readOnly = false;
+
+        return config;
+    }
 }

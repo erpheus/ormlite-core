@@ -7,6 +7,7 @@ import java.util.Map;
 import com.j256.ormlite.dao.BaseForeignCollection;
 import com.j256.ormlite.dao.ObjectCache;
 import com.j256.ormlite.field.FieldType;
+import com.j256.ormlite.field.MockFieldType;
 import com.j256.ormlite.stmt.GenericRowMapper;
 import com.j256.ormlite.support.DatabaseResults;
 import com.j256.ormlite.table.TableInfo;
@@ -53,10 +54,26 @@ public abstract class BaseMappedQuery<T, ID> extends BaseMappedStatement<T, ID> 
 		// populate its fields
 		Object id = null;
 		boolean foreignCollections = false;
+        FieldType previousFieldType = null;
+        Object previousVal = null;
 		for (FieldType fieldType : resultsFieldTypes) {
 			if (fieldType.isForeignCollection()) {
 				foreignCollections = true;
-			} else {
+			} else if(fieldType instanceof MockFieldType){
+                /* When a mockFieldType is found the previous one should be used to complete the information */
+                if (previousFieldType == null || previousFieldType.getAdditionalFieldType()!=fieldType){
+                    /* Shouldn't happen because of the order fieldTypes are added*/
+                    throw new SQLException("Fatal error: corrupt fieldType list in "+fieldType.getTableName());
+                }
+                Object val = fieldType.resultToJava(results, colPosMap);
+                if (previousVal != null && parent != null && previousFieldType.getField().getType() == parent.getClass()
+                        && previousVal.equals(parentId)) {
+                    previousFieldType.assignField(instance, parent, val,true, objectCache);
+                } else {
+                    previousFieldType.assignField(instance, previousVal, val, false, objectCache);
+                }
+            } else {
+                // TODO: Here is the iterator mapping
 				Object val = fieldType.resultToJava(results, colPosMap);
 				/*
 				 * This is pretty subtle. We introduced multiple foreign fields to the same type which use the {@link
@@ -73,7 +90,9 @@ public abstract class BaseMappedQuery<T, ID> extends BaseMappedStatement<T, ID> 
 				if (fieldType == idField) {
 					id = val;
 				}
+                previousVal = val;
 			}
+            previousFieldType = fieldType;
 		}
 		if (foreignCollections) {
 			// go back and initialize any foreign collections

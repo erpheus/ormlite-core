@@ -66,19 +66,23 @@ public class DaoManager {
 			DatabaseType databaseType = connectionSource.getDatabaseType();
 			DatabaseTableConfig<T> config = databaseType.extractDatabaseTableConfig(connectionSource, clazz);
 			Dao<T, ?> daoTmp;
-			if (config == null) {
-				daoTmp = BaseDaoImpl.createDao(connectionSource, clazz);
-			} else {
-				daoTmp = BaseDaoImpl.createDao(connectionSource, config);
-			}
+            if (databaseTable!=null && databaseTable.directSubclasses().length > 0){
+                daoTmp = new SuperDaoImpl(connectionSource,clazz,databaseTable.directSubclasses());
+            }else{
+                if (config == null) {
+                    daoTmp = BaseDaoImpl.createDao(connectionSource, clazz);
+                } else {
+                    daoTmp = BaseDaoImpl.createDao(connectionSource, config);
+                }
+            }
 			dao = daoTmp;
 			logger.debug("created dao for class {} with reflection", clazz);
 		} else {
 			Class<?> daoClass = databaseTable.daoClass();
             Object[] arguments;
-            if(SuperDaoImpl.class.isAssignableFrom(clazz)){
-                // Superclasses need the array of subclasses.
-                arguments = new Object[] { connectionSource, clazz, databaseTable.directSubclasses()};
+            Class <?> subclasses[] = databaseTable.directSubclasses();
+            if(subclasses.length > 0){
+                arguments = new Object[] { connectionSource, clazz, subclasses};
             }else{
                 arguments = new Object[] { connectionSource, clazz };
             }

@@ -10,14 +10,7 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
 
-import com.j256.ormlite.dao.BaseDaoImpl;
-import com.j256.ormlite.dao.BaseForeignCollection;
-import com.j256.ormlite.dao.Dao;
-import com.j256.ormlite.dao.DaoManager;
-import com.j256.ormlite.dao.EagerForeignCollection;
-import com.j256.ormlite.dao.ForeignCollection;
-import com.j256.ormlite.dao.LazyForeignCollection;
-import com.j256.ormlite.dao.ObjectCache;
+import com.j256.ormlite.dao.*;
 import com.j256.ormlite.db.DatabaseType;
 import com.j256.ormlite.field.types.VoidType;
 import com.j256.ormlite.misc.SqlExceptionUtil;
@@ -56,7 +49,7 @@ public class FieldType {
 	private final ConnectionSource connectionSource;
 	private final String tableName;
 	private final Field field;
-	private final String columnName;
+	protected String columnName;
 	private final DatabaseFieldConfig fieldConfig;
 	private final boolean isId;
 	private final boolean isGeneratedId;
@@ -72,6 +65,7 @@ public class FieldType {
 	private FieldType foreignIdField;
 	private TableInfo<?, ?> foreignTableInfo;
 	private FieldType foreignFieldType;
+    private MockFieldType additionalFieldType;
 	private BaseDaoImpl<?, ?> foreignDao;
 	private MappedQueryForId<Object, Object> mappedQueryForId;
 
@@ -151,6 +145,9 @@ public class FieldType {
 				throw new IllegalArgumentException("Field " + this + " is a primitive class " + clazz
 						+ " but marked as foreign");
 			}
+            //if (SuperDaoImpl.isSuperClass(fieldConfig.getFor))
+            //fieldConfig.setDataType(DataType.STRING);
+            // TODO Look here for foreign column creation. Need name change.
 			if (foreignColumnName == null) {
 				defaultFieldName = defaultFieldName + FOREIGN_ID_FIELD_SUFFIX;
 			} else {
@@ -399,7 +396,7 @@ public class FieldType {
 
 		// we have to do this because if we habe a foreign field then our id type might have gone to an _id primitive
 		if (this.foreignIdField != null) {
-			assignDataType(databaseType, this.foreignIdField.getDataPersister());
+            assignDataType(databaseType, this.foreignIdField.getDataPersister());
 		}
 	}
 
@@ -490,11 +487,16 @@ public class FieldType {
 		return fieldConfig.isForeign();
 	}
 
+    public void assignField(Object data, Object val, boolean parentObject, ObjectCache objectCache) throws SQLException {
+        this.assignField(data,val,null,parentObject,objectCache);
+    }
+
 	/**
 	 * Assign to the data object the val corresponding to the fieldType.
 	 */
-	public void assignField(Object data, Object val, boolean parentObject, ObjectCache objectCache) throws SQLException {
+	public void assignField(Object data, Object val, Object fClass, boolean parentObject, ObjectCache objectCache) throws SQLException {
 		// if this is a foreign object then val is the foreign object's id val
+        // TODO: Foreign id to object magic here.
 		if (foreignIdField != null && val != null) {
 			// get the current field value which is the foreign-id
 			Object foreignId = extractJavaFieldValue(data);
@@ -533,17 +535,36 @@ public class FieldType {
 						mappedQueryForId = castMappedQueryForId;
 					}
 					levelCounters.autoRefreshLevel++;
-					try {
-						DatabaseConnection databaseConnection = connectionSource.getReadOnlyConnection();
-						try {
-							// recurse and get the sub-object
-							foreignObject = mappedQueryForId.execute(databaseConnection, val, objectCache);
-						} finally {
-							connectionSource.releaseConnection(databaseConnection);
-						}
-					} finally {
-						levelCounters.autoRefreshLevel--;
-					}
+                    if (this.additionalFieldType != null){
+                        if (fClass == null){
+                            levelCounters.autoRefreshLevel--;
+                            return;
+                        }
+                        @SuppressWarnings("unchecked")
+                        SuperDaoImpl<Object,Object> externalDao = (SuperDaoImpl<Object,Object>)this.foreignDao;
+                        Class<?> foreignExactClass;
+                        try {
+                            foreignExactClass = Class.forName((String)fClass);
+                        } catch (ClassNotFoundException e) {
+                            levelCounters.autoRefreshLevel--;
+                            e.printStackTrace();
+                            throw new SQLException("Error finding corresponding class for name"+fClass);
+                        }
+                        foreignObject = externalDao.queryForId(val,foreignExactClass);
+                        levelCounters.autoRefreshLevel--;
+                    }else{
+                        try {
+                            DatabaseConnection databaseConnection = connectionSource.getReadOnlyConnection();
+                            try {
+                                // recurse and get the sub-object
+                                foreignObject = mappedQueryForId.execute(databaseConnection, val, objectCache);
+                            } finally {
+                                connectionSource.releaseConnection(databaseConnection);
+                            }
+                        } finally {
+                            levelCounters.autoRefreshLevel--;
+                        }
+                    }
 				}
 				// the value we are to assign to our field is now the foreign object itself
 				val = foreignObject;
@@ -754,6 +775,7 @@ public class FieldType {
 	 *            collection.
 	 */
 	public <FT, FID> BaseForeignCollection<FT, FID> buildForeignCollection(Object parent, FID id) throws SQLException {
+        //TODO: I might need some changes here.
 		// this can happen if we have a foreign-auto-refresh scenario
 		if (foreignFieldType == null) {
 			return null;
@@ -794,6 +816,7 @@ public class FieldType {
 			dbColumnPos = results.findColumn(columnName);
 			columnPositions.put(columnName, dbColumnPos);
 		}
+        // TODO: Here the mapping to object is done.
 		@SuppressWarnings("unchecked")
 		T converted = (T) fieldConverter.resultToJava(this, results, dbColumnPos);
 		if (fieldConfig.isForeign()) {
@@ -937,6 +960,17 @@ public class FieldType {
 		}
 	}
 
+    public static MockFieldType createAdditionalForeignFieldType(ConnectionSource connectionSource, String tableName,
+             Class<?> parentClass, FieldType baseFieldType) throws  SQLException {
+        DatabaseType databaseType = connectionSource.getDatabaseType();
+        DatabaseFieldConfig fieldConfig = DatabaseFieldConfig.standardStringFieldConfig(databaseType, tableName);
+        if (fieldConfig == null){
+            return null;
+        }else{
+            return new MockFieldType(connectionSource, tableName, fieldConfig, parentClass, baseFieldType );
+        }
+    }
+
 	@Override
 	public boolean equals(Object arg) {
 		if (arg == null || arg.getClass() != this.getClass()) {
@@ -1057,4 +1091,12 @@ public class FieldType {
 		// maximum foreign-collection recursion level
 		int foreignCollectionLevelMax;
 	}
+
+    public MockFieldType getAdditionalFieldType() {
+        return additionalFieldType;
+    }
+
+    public void setAdditionalFieldType(MockFieldType additionalFieldType) {
+        this.additionalFieldType = additionalFieldType;
+    }
 }
